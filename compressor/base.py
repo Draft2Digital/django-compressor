@@ -367,7 +367,19 @@ class Compressor(object):
             # Passing Contexts to Template.render is deprecated since Django 1.8.
             # However, we use the fix below only for django 1.9 and above, since
             # the flatten method is buggy in 1.8, see https://code.djangoproject.com/ticket/24765
-            final_context = self.context.flatten()
+            try:
+                final_context = self.context.flatten()
+            except ValueError:
+                # Somehow, we are sometimes getting RequestContext instances in
+                # self.context.dicts, which can't handle the .update() call
+                # in flatten().  Thus, we check out the individual dicts
+                # in self.context and remove the ones that don't have a
+                # flatten attribute/method.
+                dicts = self.context.dicts
+                self.context.dicts = [
+                    d.flatten() for d in dicts if hasattr(d, 'flatten')
+                ]
+                final_context = self.context.flatten()
         else:
             final_context = self.context
 
